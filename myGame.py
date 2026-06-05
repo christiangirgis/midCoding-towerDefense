@@ -34,6 +34,8 @@ TOWER_COLOR = (90, 176, 240)
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Tower Defense - Day 1")
 clock = pygame.time.Clock()
+font = pygame.font.SysFont("menlo", 20)
+
 
 @dataclass
 class Enemy:
@@ -215,7 +217,18 @@ def can_place_tower(towers, col, row):
 	if tower_at(towers, col, row) is not None:
 		return False
 	return True
-
+def draw_hud(gold, lives, wave_num, message):
+	lines = [
+		f"Gold: {gold}",
+		f"Lives: {lives}",
+		f"Wave: {wave_num}",
+		message,
+	]
+	y = 20
+	for line in lines:
+		surf = font.render(line, True, (230, 234, 240))
+		screen.blit(surf, (BOARD_WIDTH + 16, y))
+		y += 28
 def main():
 	running = True
 	enemy = Enemy(*PATH_POINTS[0])
@@ -223,6 +236,11 @@ def main():
 	towers = []
 	waves = WaveController()
 	bullets = []
+	gold = 220
+	lives = 20
+	tower_cost = 70
+	message = "Press S to start wave."
+
 
 	while running:
 		dt = clock.tick(FPS) / 1000.0
@@ -238,8 +256,12 @@ def main():
 				if mx < BOARD_WIDTH:
 					col = mx // TILE_SIZE
 					row = my // TILE_SIZE
-					if can_place_tower(towers, col, row):
+					# In mouse place logic:
+					if can_place_tower(towers, col, row) and gold >= tower_cost:
 						towers.append(Tower(col, row))
+						gold -= tower_cost
+					elif gold < tower_cost:
+						message = "Not enough gold."
 		screen.fill(BG_COLOR)
 		for enemy in list(enemies): # Using list copy is safer when modifying/updating
 			enemy.update(dt)
@@ -250,7 +272,7 @@ def main():
 			tower.draw()
 		draw_panel()
 		update_towers(towers, enemies, bullets, dt)
-
+		draw_hud(gold, lives, waves.wave_index, message)
 		for b in list(bullets):
 			if b.update(dt):
 				bullets.remove(b)
@@ -259,8 +281,14 @@ def main():
 			b.draw()
 
 		for enemy in list(enemies):
-			if enemy.health <= 0:
+			enemy.update(dt)
+			if enemy.path_index >= len(PATH_POINTS) - 1:
 				enemies.remove(enemy)
+				lives -= 1
+				message = "Enemy leaked through!"
+			elif enemy.health <= 0:
+				enemies.remove(enemy)
+				gold += 12
 		pygame.display.flip()
 	pygame.quit()
 	sys.exit()
